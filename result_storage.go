@@ -5,7 +5,7 @@ import "sync"
 type ResultStorage interface {
 	Update(key, value interface{})
 	Delete(key interface{})
-	Get(key interface{})
+	Get(key interface{}) (interface{}, bool)
 }
 
 type LightSyncMap struct {
@@ -32,8 +32,9 @@ func (s *LightSyncMap) Delete(key interface{}) {
 	s.mux.Unlock()
 }
 
-func (s *LightSyncMap) Get(key interface{}) {
-
+func (s *LightSyncMap) Get(key interface{}) (interface{}, bool) {
+	m, f := s.storage[key]
+	return m, f
 }
 
 func (s *LightSyncMap) Len() int {

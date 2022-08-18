@@ -7,12 +7,13 @@ package grep
 
 import (
 	"bufio"
-	"fmt"
+	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 )
+
+var oneByte byte = 1
 
 // StringFinder efficiently finds strings in a source text. It's implemented
 // using the Boyer-Moore string search algorithm:
@@ -21,7 +22,7 @@ import (
 // document uses 1-based indexing)
 type StringFinder struct {
 	// pattern is the string that we are searching for in the text.
-	pattern string
+	pattern []byte
 
 	// badCharSkip[b] contains the distance between the last byte of pattern
 	// and the rightmost occurrence of b in pattern. If b is not in pattern,
@@ -58,24 +59,25 @@ type StringFinder struct {
 }
 
 func MakeStringFinder(pattern string) *StringFinder {
+	patternByte := []byte(pattern)
 	f := &StringFinder{
-		pattern:        pattern,
+		pattern:        patternByte,
 		patternLen:     len(pattern),
-		goodSuffixSkip: make([]int, len(pattern)),
+		goodSuffixSkip: make([]int, len(patternByte)),
 	}
 	// last is the index of the last character in the pattern.
-	last := len(pattern) - 1
+	last := len(patternByte) - 1
 
 	// Build bad character table.
 	// Bytes not in the pattern can skip one pattern's length.
 	for i := range f.badCharSkip {
-		f.badCharSkip[i] = len(pattern)
+		f.badCharSkip[i] = len(patternByte)
 	}
 	// The loop condition is < instead of <= so that the last byte does not
 	// have a zero distance to itself. Finding this byte out of place implies
 	// that it is not in the last position.
 	for i := 0; i < last; i++ {
-		f.badCharSkip[pattern[i]] = last - i
+		f.badCharSkip[patternByte[i]] = last - i
 	}
 
 	// Build good suffix table.
@@ -83,7 +85,7 @@ func MakeStringFinder(pattern string) *StringFinder {
 	// pattern.
 	lastPrefix := last
 	for i := last; i >= 0; i-- {
-		if strings.HasPrefix(pattern, pattern[i+1:]) {
+		if bytes.HasPrefix(patternByte, patternByte[i+1:]) {
 			lastPrefix = i + 1
 		}
 		// lastPrefix is the shift, and (last-i) is len(suffix).
@@ -91,8 +93,8 @@ func MakeStringFinder(pattern string) *StringFinder {
 	}
 	// Second pass: find repeats of pattern's suffix starting from the front.
 	for i := 0; i < last; i++ {
-		lenSuffix := longestCommonSuffix(pattern, pattern[1:i+1])
-		if pattern[i-lenSuffix] != pattern[last-lenSuffix] {
+		lenSuffix := longestCommonSuffix(patternByte, patternByte[1:i+1])
+		if patternByte[i-lenSuffix] != patternByte[last-lenSuffix] {
 			// (last-i) is the shift, and lenSuffix is len(suffix).
 			f.goodSuffixSkip[last-lenSuffix] = lenSuffix + last - i
 		}
@@ -101,7 +103,7 @@ func MakeStringFinder(pattern string) *StringFinder {
 	return f
 }
 
-func longestCommonSuffix(a, b string) (i int) {
+func longestCommonSuffix(a, b []byte) (i int) {
 	for ; i < len(a) && i < len(b); i++ {
 		if a[len(a)-1-i] != b[len(b)-1-i] {
 			break
@@ -112,7 +114,7 @@ func longestCommonSuffix(a, b string) (i int) {
 
 // next returns the index in text of the first occurrence of the pattern. If
 // the pattern is not found, it returns -1.
-func (f *StringFinder) next(text string) int {
+func (f *StringFinder) search(text []byte) int {
 
 	i := f.patternLen - 1
 	for i < len(text) {
@@ -130,27 +132,25 @@ func (f *StringFinder) next(text string) int {
 	return -1
 }
 
-func (f *StringFinder) PatternMatch(file string, resultStorage ResultStorage, wg *sync.WaitGroup) {
+func (f *StringFinder) PatternMatch(file string, resultStorage ResultStorage, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	openFile, err := os.Open(file)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v: %s\n", err, file)
-		return
+		return err
 	}
 	defer openFile.Close()
 	scanner := bufio.NewScanner(openFile)
 
 	for scanner.Scan() {
-
-		if f.next(scanner.Text()) != -1 {
-			resultStorage.Update(file, "1")
-			return
+		if value := f.search(scanner.Bytes()); value != -1 {
+			resultStorage.Update(file, oneByte)
+			return nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v: %s\n", err, file)
+		return err
 	}
-
+	return nil
 }
 
 func (s *StringFinder) RecursiveSearch(path string, fileStorage ResultStorage, onlyFiles bool) error {
