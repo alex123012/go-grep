@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"sync"
 
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/godoc/util"
 )
 
@@ -20,6 +20,9 @@ import (
 // https://en.wikipedia.org/wiki/Boyer-Moore_string_search_algorithm
 // https://www.cs.utexas.edu/~moore/publications/fstrpos.pdf (note: this aged
 // document uses 1-based indexing)
+
+const GouroutinesLimit = 512
+
 type StringFinder struct {
 	// pattern is the string that we are searching for in the text.
 	pattern []byte
@@ -57,7 +60,9 @@ type StringFinder struct {
 
 	patternLen int
 
-	findFunc func(syncMap SyncMap, key string, value []byte, line int)
+	mapMaker func() SyncMap
+
+	errGroup *errgroup.Group
 }
 
 func MakeStringFinder(pattern string) *StringFinder {
@@ -66,7 +71,9 @@ func MakeStringFinder(pattern string) *StringFinder {
 		pattern:        patternByte,
 		patternLen:     len(pattern),
 		goodSuffixSkip: make([]int, len(patternByte)),
+		errGroup:       &errgroup.Group{},
 	}
+	f.errGroup.SetLimit(GouroutinesLimit)
 	// last is the index of the last character in the pattern.
 	last := len(patternByte) - 1
 
@@ -125,24 +132,18 @@ func (f *StringFinder) search(text []byte) int {
 	return -1
 }
 
-func (f *StringFinder) getOnlyFiles(syncMap SyncMap, key string, value []byte, line int) {
-	mapper := MakeOnlyLines(line)
-	syncMap.Put(key, mapper)
-}
-
-func (f *StringFinder) getWithLines(syncMap SyncMap, key string, value []byte, line int) {
+func (f *StringFinder) putInMap(syncMap SyncMap, key string, value []byte, line int) {
 	alreadyPresent, found := syncMap.Get(key)
 	if found {
-		alreadyPresent.(SyncMap).Put(line, string(value))
+		alreadyPresent.(SyncMap).Put(line, value)
 	} else {
-		lineMapper := MakeLinesWithText()
-		lineMapper.Put(line, string(value))
+		lineMapper := f.mapMaker()
+		lineMapper.Put(line, value)
 		syncMap.Put(key, lineMapper)
 	}
 }
 
-func (f *StringFinder) patternMatch(file string, syncMap SyncMap, wg *sync.WaitGroup) error {
-	defer wg.Done()
+func (f *StringFinder) patternMatch(file string, syncMap SyncMap) error {
 	openFile, err := os.Open(file)
 	if err != nil {
 		return err
@@ -152,12 +153,11 @@ func (f *StringFinder) patternMatch(file string, syncMap SyncMap, wg *sync.WaitG
 
 	i := 1
 	for scanner.Scan() {
-		if !util.IsText(scanner.Bytes()) {
-			syncMap.Delete(file)
-			break
+		if i == 1 && !util.IsText(scanner.Bytes()) {
+			return nil
 		}
 		if value := f.search(scanner.Bytes()); value != -1 {
-			f.findFunc(syncMap, file, scanner.Bytes(), i)
+			f.putInMap(syncMap, file, scanner.Bytes(), i)
 		}
 		i += 1
 	}
@@ -167,14 +167,16 @@ func (f *StringFinder) patternMatch(file string, syncMap SyncMap, wg *sync.WaitG
 	return nil
 }
 
+func (f *StringFinder) SetGouroutinesLimit(limit int) {
+	f.errGroup.SetLimit(limit)
+}
 func (f *StringFinder) Search(path string, onlyFiles bool) (*MapFiles, error) {
 
-	var wg sync.WaitGroup
 	mapFiles := MakeMapFiles()
 	if onlyFiles {
-		f.findFunc = f.getOnlyFiles
+		f.mapMaker = makeonlyLines
 	} else {
-		f.findFunc = f.getWithLines
+		f.mapMaker = makelinesWithText
 	}
 	err := filepath.WalkDir(path,
 		func(path string, info os.DirEntry, err error) error {
@@ -184,16 +186,16 @@ func (f *StringFinder) Search(path string, onlyFiles bool) (*MapFiles, error) {
 			if info.IsDir() {
 				return nil
 			}
-			wg.Add(1)
-			go f.patternMatch(path, mapFiles, &wg)
+			f.errGroup.Go(func() error {
+				return f.patternMatch(path, mapFiles)
+			})
 
 			return nil
 		})
 	if err != nil {
 		return nil, err
 	}
-	wg.Wait()
-	return mapFiles, nil
+	return mapFiles, f.errGroup.Wait()
 }
 
 func longestCommonSuffix(a, b []byte) (i int) {

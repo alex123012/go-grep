@@ -30,9 +30,13 @@ func main() {
 
 func PrintForDebug(fileMap *grep.MapFiles) {
 	result := fileMap.GetStruct()
-	b, err := json.MarshalIndent(result, "", "  ")
+	// for _, v := range result {
+	// 	fmt.Fprintln(os.Stdout, v.File)
+	// }
+	res, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		fmt.Println("error:", err)
 	}
-	fmt.Fprintln(os.Stderr, string(b))
+	fmt.Println(string(res))
+
 }

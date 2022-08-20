@@ -15,5 +15,7 @@
 # vendor/
 *time-*
 *memory-*
-grep-goo
+grep-go*
 grep-gnu
+res*.txt
+res*.csv

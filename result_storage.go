@@ -17,16 +17,16 @@ type SyncMap interface {
 }
 
 type GetMapper interface {
-	GetMap() []*JsonResult
+	GetMap() []*File
 }
 
-type JsonResult struct {
-	File  string
+type File struct {
+	Name  string
 	Lines []*Line
 }
 type Line struct {
-	Line int
-	Text string
+	Number int
+	Text   string
 }
 type MapFiles struct {
 	mux     *sync.RWMutex
@@ -40,17 +40,17 @@ func MakeMapFiles() *MapFiles {
 	}
 }
 
-func (m *MapFiles) GetStruct() []*JsonResult {
-	result := []*JsonResult{}
+func (m *MapFiles) GetStruct() []*File {
+	result := []*File{}
 	m.Range(func(key interface{}, value interface{}) bool {
-		file := &JsonResult{
-			File:  key.(string),
+		file := &File{
+			Name:  key.(string),
 			Lines: []*Line{},
 		}
 		value.(SyncMap).Range(func(key, value interface{}) bool {
 			line := &Line{
-				Line: key.(int),
-				Text: value.(string),
+				Number: key.(int),
+				Text:   value.(string),
 			}
 			file.Lines = append(file.Lines, line)
 			return true
@@ -105,72 +105,72 @@ func (m *MapFiles) Range(f func(key, value any) bool) {
 	}
 }
 
-type OnlyLines int32
+type onlyLines int32
 
-func MakeOnlyLines(i int) *OnlyLines {
-	l := (OnlyLines)(i)
+func makeonlyLines() SyncMap {
+	var l onlyLines
 	return &l
 }
-func (o *OnlyLines) Delete(key any) {
+func (o *onlyLines) Delete(key any) {
 
 }
 
-func (o *OnlyLines) Get(key any) (value any, ok bool) {
+func (o *onlyLines) Get(key any) (value any, ok bool) {
 	return atomic.LoadInt32((*int32)(o)), true
 }
 
-func (o *OnlyLines) Pop(key any) (value any, loaded bool) {
+func (o *onlyLines) Pop(key any) (value any, loaded bool) {
 	return atomic.LoadInt32((*int32)(o)), false
 }
 
-func (o *OnlyLines) GetOrPut(key, value any) (actual any, loaded bool) {
+func (o *onlyLines) GetOrPut(key, value any) (actual any, loaded bool) {
 	return atomic.LoadInt32((*int32)(o)), true
 }
 
-func (o *OnlyLines) Put(key, value any) {
-	atomic.StoreInt32((*int32)(o), key.(int32))
+func (o *onlyLines) Put(key, value any) {
+	atomic.StoreInt32((*int32)(o), (int32)(key.(int)))
 }
 
-func (o *OnlyLines) Len() int {
+func (o *onlyLines) Len() int {
 	return (int)(atomic.LoadInt32((*int32)(o)))
 }
 
-func (o *OnlyLines) Range(f func(key, value any) bool) {
+func (o *onlyLines) Range(f func(key, value any) bool) {
 	f((int)(*o), "")
 }
 
-type LinesWithText struct {
+type linesWithText struct {
 	mux     *sync.RWMutex
 	storage map[int]string
 }
 
-func MakeLinesWithText() *LinesWithText {
-	return &LinesWithText{
+func makelinesWithText() SyncMap {
+	return &linesWithText{
 		mux:     &sync.RWMutex{},
 		storage: make(map[int]string),
 	}
 }
 
-func (l *LinesWithText) Delete(key any) {
+func (l *linesWithText) Delete(key any) {
 	l.mux.Lock()
 	delete(l.storage, key.(int))
 	l.mux.Unlock()
 }
 
-func (l *LinesWithText) Get(key any) (value any, ok bool) {
+func (l *linesWithText) Get(key any) (value any, ok bool) {
 	l.mux.RLock()
 	defer l.mux.RUnlock()
 	v, f := l.storage[key.(int)]
 	return v, f
 }
 
-func (l *LinesWithText) Pop(key any) (value any, loaded bool) {
+func (l *linesWithText) Pop(key any) (value any, loaded bool) {
 	v, f := l.Get(key)
 	l.Delete(key)
 	return v, f
 }
 
-func (l *LinesWithText) GetOrPut(key, value any) (actual any, loaded bool) {
+func (l *linesWithText) GetOrPut(key, value any) (actual any, loaded bool) {
 	v, f := l.Get(key)
 	if !f {
 		l.Put(key, value)
@@ -178,17 +178,17 @@ func (l *LinesWithText) GetOrPut(key, value any) (actual any, loaded bool) {
 	return v, f
 }
 
-func (l *LinesWithText) Put(key, value any) {
+func (l *linesWithText) Put(key, value any) {
 	l.mux.RLock()
-	l.storage[key.(int)] = value.(string)
+	l.storage[key.(int)] = string(value.([]byte))
 	l.mux.RUnlock()
 }
 
-func (l *LinesWithText) Len() int {
+func (l *linesWithText) Len() int {
 	return len(l.storage)
 }
 
-func (l *LinesWithText) Range(f func(key, value any) bool) {
+func (l *linesWithText) Range(f func(key, value any) bool) {
 	for k, v := range l.storage {
 		b := f(k, v)
 		if !b {
