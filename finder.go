@@ -11,9 +11,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-)
 
-var oneByte byte = 1
+	"golang.org/x/tools/godoc/util"
+)
 
 // StringFinder efficiently finds strings in a source text. It's implemented
 // using the Boyer-Moore string search algorithm:
@@ -56,6 +56,8 @@ type StringFinder struct {
 	goodSuffixSkip []int
 
 	patternLen int
+
+	findFunc func(syncMap SyncMap, key string, value []byte, line int)
 }
 
 func MakeStringFinder(pattern string) *StringFinder {
@@ -103,15 +105,6 @@ func MakeStringFinder(pattern string) *StringFinder {
 	return f
 }
 
-func longestCommonSuffix(a, b []byte) (i int) {
-	for ; i < len(a) && i < len(b); i++ {
-		if a[len(a)-1-i] != b[len(b)-1-i] {
-			break
-		}
-	}
-	return
-}
-
 // next returns the index in text of the first occurrence of the pattern. If
 // the pattern is not found, it returns -1.
 func (f *StringFinder) search(text []byte) int {
@@ -132,7 +125,23 @@ func (f *StringFinder) search(text []byte) int {
 	return -1
 }
 
-func (f *StringFinder) PatternMatch(file string, resultStorage ResultStorage, wg *sync.WaitGroup) error {
+func (f *StringFinder) getOnlyFiles(syncMap SyncMap, key string, value []byte, line int) {
+	mapper := MakeOnlyLines(line)
+	syncMap.Put(key, mapper)
+}
+
+func (f *StringFinder) getWithLines(syncMap SyncMap, key string, value []byte, line int) {
+	alreadyPresent, found := syncMap.Get(key)
+	if found {
+		alreadyPresent.(SyncMap).Put(line, string(value))
+	} else {
+		lineMapper := MakeLinesWithText()
+		lineMapper.Put(line, string(value))
+		syncMap.Put(key, lineMapper)
+	}
+}
+
+func (f *StringFinder) patternMatch(file string, syncMap SyncMap, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	openFile, err := os.Open(file)
 	if err != nil {
@@ -141,11 +150,16 @@ func (f *StringFinder) PatternMatch(file string, resultStorage ResultStorage, wg
 	defer openFile.Close()
 	scanner := bufio.NewScanner(openFile)
 
+	i := 1
 	for scanner.Scan() {
-		if value := f.search(scanner.Bytes()); value != -1 {
-			resultStorage.Update(file, oneByte)
-			return nil
+		if !util.IsText(scanner.Bytes()) {
+			syncMap.Delete(file)
+			break
 		}
+		if value := f.search(scanner.Bytes()); value != -1 {
+			f.findFunc(syncMap, file, scanner.Bytes(), i)
+		}
+		i += 1
 	}
 	if err := scanner.Err(); err != nil {
 		return err
@@ -153,9 +167,15 @@ func (f *StringFinder) PatternMatch(file string, resultStorage ResultStorage, wg
 	return nil
 }
 
-func (s *StringFinder) RecursiveSearch(path string, fileStorage ResultStorage, onlyFiles bool) error {
+func (f *StringFinder) Search(path string, onlyFiles bool) (*MapFiles, error) {
 
 	var wg sync.WaitGroup
+	mapFiles := MakeMapFiles()
+	if onlyFiles {
+		f.findFunc = f.getOnlyFiles
+	} else {
+		f.findFunc = f.getWithLines
+	}
 	err := filepath.WalkDir(path,
 		func(path string, info os.DirEntry, err error) error {
 			if err != nil {
@@ -165,15 +185,24 @@ func (s *StringFinder) RecursiveSearch(path string, fileStorage ResultStorage, o
 				return nil
 			}
 			wg.Add(1)
-			go s.PatternMatch(path, fileStorage, &wg)
+			go f.patternMatch(path, mapFiles, &wg)
 
 			return nil
 		})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	wg.Wait()
-	return nil
+	return mapFiles, nil
+}
+
+func longestCommonSuffix(a, b []byte) (i int) {
+	for ; i < len(a) && i < len(b); i++ {
+		if a[len(a)-1-i] != b[len(b)-1-i] {
+			break
+		}
+	}
+	return
 }
 
 func max(a, b int) int {

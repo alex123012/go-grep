@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -15,15 +16,23 @@ func main() {
 	username := ""
 
 	start := time.Now()
-	fileMap := grep.MakeLightSyncMap()
 	patternSearch := grep.MakeStringFinder(pattern)
-	err := patternSearch.RecursiveSearch(file, fileMap, true)
+	fileMap, err := patternSearch.Search(file, false)
 
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
 	fileMap.Delete(username)
-
 	fmt.Printf("Mafunc: %d ms; result = %t\n", time.Since(start).Microseconds(), fileMap.Len() == 0)
 
+	// PrintForDebug(fileMap)
+}
+
+func PrintForDebug(fileMap *grep.MapFiles) {
+	result := fileMap.GetStruct()
+	b, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Fprintln(os.Stderr, string(b))
 }
