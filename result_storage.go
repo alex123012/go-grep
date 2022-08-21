@@ -179,9 +179,9 @@ func (l *linesWithText) GetOrPut(key, value any) (actual any, loaded bool) {
 }
 
 func (l *linesWithText) Put(key, value any) {
-	l.mux.RLock()
+	l.mux.Lock()
 	l.storage[key.(int)] = string(value.([]byte))
-	l.mux.RUnlock()
+	l.mux.Unlock()
 }
 
 func (l *linesWithText) Len() int {
