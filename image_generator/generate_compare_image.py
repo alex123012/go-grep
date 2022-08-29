@@ -2,8 +2,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# .apply(lambda x: x.type(float))
-df = pd.read_csv("result_table.csv", sep=', ', engine="python")
+df = pd.read_json("result_time.json")
 df.iloc[:, 1:] = df.iloc[:, 1:].apply(lambda x: x.astype(float))
 
 plt.style.use("seaborn-poster")
@@ -20,4 +19,4 @@ for column, ax in zip(df.columns[3:], axes):
         a.set_title(f"{ref}({column})")
 
 fig.tight_layout()
-fig.savefig("../.github/images/graphics.png", dpi=600)
+fig.savefig(".github/images/result_time.png", dpi=600)

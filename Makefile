@@ -35,9 +35,12 @@ fix: bin/golangci-lint
 ###########
 # TESTING
 ###########
+test = go test -v ./...
 test:
-	go test -v ./... -covermode=count -coverprofile=${COVERAGE_PROFILE}
+	${test} -tags=notime -race -cover
+test-time:
+	${test} -tags=time ./...
+	python3 ./image_generator/generate_compare_image.py
+test-coverage:
+	${test} -tags=notime -covermode=count -coverprofile=${COVERAGE_PROFILE}
 	go tool cover -func=${COVERAGE_PROFILE} -o=${COVERAGE_PROFILE}
-
-time-tests:
-	cd ${TIME_TESTS_PATH} && $(MAKE) generate-time-table

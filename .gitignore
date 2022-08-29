@@ -21,3 +21,4 @@ grep-go*
 grep-gnu
 res*.txt
 res*.csv
+res*.json
