@@ -1,3 +1,5 @@
+//go:build !time
+
 package grep_test
 
 import (
@@ -10,14 +12,6 @@ import (
 	"github.com/alex123012/go-grep"
 )
 
-type TestCase struct {
-	fileName     string
-	pattern      string
-	grepCount    int
-	grepLastLine int32
-	onlyFiles    bool
-}
-
 func TestTextFiles(t *testing.T) {
 	testCases := []TestCase{
 		{
@@ -27,13 +21,13 @@ func TestTextFiles(t *testing.T) {
 			grepLastLine: 170246,
 		},
 		{
-			fileName:     "./test_cases/test_long_text_file.txt",
+			fileName:     "./test_cases/test_dir/test_long_text_file.txt",
 			pattern:      "STNGVYVHERRRELLLDTSIDSSDRPSIQGDTSKHHENQNPAELGMTSPK",
 			grepCount:    1,
 			grepLastLine: 4,
 		},
 		{
-			fileName:     "./test_cases/test_short_text_file.txt",
+			fileName:     "./test_cases/test_dir/test_short_text_file.txt",
 			pattern:      "A0A",
 			grepCount:    13,
 			grepLastLine: 20,
@@ -131,11 +125,11 @@ func TestSetLimitGouroutines(t *testing.T) {
 			pattern:  "kill",
 		},
 		{
-			fileName: "./test_cases/test_long_text_file.txt",
+			fileName: "./test_cases/test_dir/test_long_text_file.txt",
 			pattern:  "STNGVYVHERRRELLLDTSIDSSDRPSIQGDTSKHHENQNPAELGMTSPK",
 		},
 		{
-			fileName: "./test_cases/test_short_text_file.txt",
+			fileName: "./test_cases/test_dir/test_short_text_file.txt",
 			pattern:  "A0A",
 		},
 	}

@@ -1,3 +1,5 @@
+//go:build !time
+
 package grep_test
 
 import (
