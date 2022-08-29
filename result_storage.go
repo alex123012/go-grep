@@ -10,7 +10,6 @@ type SyncMap interface {
 	Delete(key any)
 	Get(key any) (value any, ok bool)
 	Pop(key any) (value any, loaded bool)
-	GetOrPut(key, value any) (actual any, loaded bool)
 	Put(key, value any)
 	Len() int
 	Range(f func(key, value any) bool)
@@ -78,13 +77,6 @@ func (m *MapFiles) Pop(key any) (value any, loaded bool) {
 	m.Delete(key)
 	return v, f
 }
-func (m *MapFiles) GetOrPut(key, value any) (actual any, loaded bool) {
-	v, f := m.Get(key)
-	if !f {
-		m.Put(key, value)
-	}
-	return v, f
-}
 
 func (m *MapFiles) Put(key, value any) {
 	m.mux.Lock()
@@ -93,6 +85,8 @@ func (m *MapFiles) Put(key, value any) {
 }
 
 func (m *MapFiles) Len() int {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
 	return len(m.storage)
 }
 
@@ -105,37 +99,33 @@ func (m *MapFiles) Range(f func(key, value any) bool) {
 	}
 }
 
-type onlyLines int32
+type onlyFiles int32
 
-func makeonlyLines() SyncMap {
-	var l onlyLines
+func MakeOnlyFiles() SyncMap {
+	var l onlyFiles
 	return &l
 }
-func (o *onlyLines) Delete(key any) {
+func (o *onlyFiles) Delete(key any) {
 
 }
 
-func (o *onlyLines) Get(key any) (value any, ok bool) {
+func (o *onlyFiles) Get(key any) (value any, ok bool) {
 	return atomic.LoadInt32((*int32)(o)), true
 }
 
-func (o *onlyLines) Pop(key any) (value any, loaded bool) {
-	return atomic.LoadInt32((*int32)(o)), false
-}
-
-func (o *onlyLines) GetOrPut(key, value any) (actual any, loaded bool) {
+func (o *onlyFiles) Pop(key any) (value any, loaded bool) {
 	return atomic.LoadInt32((*int32)(o)), true
 }
 
-func (o *onlyLines) Put(key, value any) {
+func (o *onlyFiles) Put(key, value any) {
 	atomic.StoreInt32((*int32)(o), (int32)(key.(int)))
 }
 
-func (o *onlyLines) Len() int {
+func (o *onlyFiles) Len() int {
 	return (int)(atomic.LoadInt32((*int32)(o)))
 }
 
-func (o *onlyLines) Range(f func(key, value any) bool) {
+func (o *onlyFiles) Range(f func(key, value any) bool) {
 	f((int)(*o), "")
 }
 
@@ -144,7 +134,7 @@ type linesWithText struct {
 	storage map[int]string
 }
 
-func makelinesWithText() SyncMap {
+func MakeLinesWithText() SyncMap {
 	return &linesWithText{
 		mux:     &sync.RWMutex{},
 		storage: make(map[int]string),
@@ -170,14 +160,6 @@ func (l *linesWithText) Pop(key any) (value any, loaded bool) {
 	return v, f
 }
 
-func (l *linesWithText) GetOrPut(key, value any) (actual any, loaded bool) {
-	v, f := l.Get(key)
-	if !f {
-		l.Put(key, value)
-	}
-	return v, f
-}
-
 func (l *linesWithText) Put(key, value any) {
 	l.mux.Lock()
 	l.storage[key.(int)] = string(value.([]byte))
@@ -185,6 +167,8 @@ func (l *linesWithText) Put(key, value any) {
 }
 
 func (l *linesWithText) Len() int {
+	l.mux.RLock()
+	defer l.mux.RUnlock()
 	return len(l.storage)
 }
 

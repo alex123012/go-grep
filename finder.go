@@ -115,7 +115,6 @@ func MakeStringFinder(pattern string) *StringFinder {
 // next returns the index in text of the first occurrence of the pattern. If
 // the pattern is not found, it returns -1.
 func (f *StringFinder) search(text []byte) int {
-
 	i := f.patternLen - 1
 	for i < len(text) {
 		// Compare backwards from the end until the first unmatching character.
@@ -159,7 +158,7 @@ func (f *StringFinder) patternMatch(file string, syncMap SyncMap) error {
 		if value := f.search(scanner.Bytes()); value != -1 {
 			f.putInMap(syncMap, file, scanner.Bytes(), i)
 		}
-		i += 1
+		i++
 	}
 	if err := scanner.Err(); err != nil {
 		return err
@@ -171,12 +170,11 @@ func (f *StringFinder) SetGouroutinesLimit(limit int) {
 	f.errGroup.SetLimit(limit)
 }
 func (f *StringFinder) Search(path string, onlyFiles bool) (*MapFiles, error) {
-
 	mapFiles := MakeMapFiles()
 	if onlyFiles {
-		f.mapMaker = makeonlyLines
+		f.mapMaker = MakeOnlyFiles
 	} else {
-		f.mapMaker = makelinesWithText
+		f.mapMaker = MakeLinesWithText
 	}
 	err := filepath.WalkDir(path,
 		func(path string, info os.DirEntry, err error) error {

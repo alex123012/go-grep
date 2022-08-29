@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"fmt"
 	"os/exec"
 	"time"
@@ -31,5 +32,6 @@ func runBash(script string) string {
 	if err != nil {
 		return (fmt.Sprint(err) + " : " + string(stdout))
 	}
+	md5.Sum([]byte("lol"))
 	return string(stdout)
 }

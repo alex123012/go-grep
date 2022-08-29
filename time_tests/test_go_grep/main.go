@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -28,15 +27,12 @@ func main() {
 	// PrintForDebug(fileMap)
 }
 
-func PrintForDebug(fileMap *grep.MapFiles) {
-	result := fileMap.GetStruct()
-	// for _, v := range result {
-	// 	fmt.Fprintln(os.Stdout, v.File)
-	// }
-	res, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-	fmt.Println(string(res))
+// func PrintForDebug(fileMap *grep.MapFiles) {
+// 	result := fileMap.GetStruct()
+// 	res, err := json.MarshalIndent(result, "", "  ")
+// 	if err != nil {
+// 		fmt.Println("error:", err)
+// 	}
+// 	fmt.Println(string(res))
 
-}
+// }

@@ -1,5 +1,7 @@
 # go-grep
-A simple library for replacing grep functionality in go
+[![GoDoc](https://godoc.org/github.com/alex123012/go-grep?status.svg)](https://pkg.go.dev/github.com/alex123012/go-grep) [![Lint and Test Status](https://github.com/alex123012/go-grep/actions/workflows/lint-and-test.yml/badge.svg)](https://github.com/alex123012/go-grep/actions) [![CodeQL analisys Status](https://github.com/alex123012/go-grep/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/alex123012/go-grep/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/alex123012/go-grep)](https://goreportcard.com/report/github.com/alex123012/go-grep)
+
+*go-grep* is a simple library for replacing grep functionality written in pure go
 
 # Limitations
 * This implementation can't read lines with more than 65536 symbols (this will provide error ```bufio.Scanner: token too long```) because of perfomance degrading. Read more about ```MaxScanTokenSize``` in [bufio doc](https://pkg.go.dev/bufio#pkg-constants)
