@@ -13,5 +13,6 @@
 
 <p align="center">
 <!--START_SECTION:update_image-->
+<img src=https://raw.githubusercontent.com/alex123012/go-grep/main/.github/images/result_time.png height=750px width=562px align=- alt=Time graphics />
 <!--END_SECTION:update_image-->
 </p>
