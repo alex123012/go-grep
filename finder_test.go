@@ -70,6 +70,17 @@ func TestBrokenSymlink(t *testing.T) {
 	}
 }
 
+func TestSymlink(t *testing.T) {
+	testCase := TestCase{
+		pattern:  "anything",
+		fileName: "./test_cases/test_long_text_file.txt",
+	}
+	fileMap := testFile(testCase, t)
+	if v := fileMap.Len(); v > 0 {
+		t.Fatalf("Error in testing directory file: expected 0, got %d files", v)
+	}
+}
+
 func TestLongLine(t *testing.T) {
 	testCase := TestCase{
 		pattern:  "kill",

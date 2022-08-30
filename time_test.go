@@ -45,15 +45,15 @@ func TestTime(t *testing.T) {
 			pattern:  "TGNEKKQLSSSAERQIDEARELLEQMDLE",
 		},
 		{
-			fileName: "./test_cases/test_dir",
+			fileName: "./test_cases/test_time",
 			pattern:  "TGNEKKQLSSSAERQIDEARELLEQMDLE",
 		},
 		{
-			fileName: "./test_cases/test_dir/test_long_text_file.txt",
+			fileName: "./test_cases/test_time/test_dir1",
 			pattern:  "TGNEKKQLSSSAERQIDEARELLEQMDLE",
 		},
 		{
-			fileName: "./test_cases/test_dir/test_short_text_file.txt",
+			fileName: "./test_cases/test_time/test_dir1/test_dir1",
 			pattern:  "TGNEKKQLSSSAERQIDEARELLEQMDLE",
 		},
 	}

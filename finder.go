@@ -63,6 +63,7 @@ type StringFinder struct {
 	mapMaker func() SyncMap
 
 	errGroup *errgroup.Group
+	mapFiles *MapFiles
 }
 
 func MakeStringFinder(pattern string) *StringFinder {
@@ -131,18 +132,18 @@ func (f *StringFinder) search(text []byte) int {
 	return -1
 }
 
-func (f *StringFinder) putInMap(syncMap SyncMap, key string, value []byte, line int) {
-	alreadyPresent, found := syncMap.Get(key)
+func (f *StringFinder) putInMap(key string, value []byte, line int) {
+	alreadyPresent, found := f.mapFiles.Get(key)
 	if found {
 		alreadyPresent.(SyncMap).Put(line, value)
 	} else {
 		lineMapper := f.mapMaker()
 		lineMapper.Put(line, value)
-		syncMap.Put(key, lineMapper)
+		f.mapFiles.Put(key, lineMapper)
 	}
 }
 
-func (f *StringFinder) patternMatch(file string, syncMap SyncMap) error {
+func (f *StringFinder) patternMatch(file string) error {
 	openFile, err := os.Open(file)
 	if err != nil {
 		return err
@@ -156,7 +157,7 @@ func (f *StringFinder) patternMatch(file string, syncMap SyncMap) error {
 			return nil
 		}
 		if value := f.search(scanner.Bytes()); value != -1 {
-			f.putInMap(syncMap, file, scanner.Bytes(), i)
+			f.putInMap(file, scanner.Bytes(), i)
 		}
 		i++
 	}
@@ -170,7 +171,7 @@ func (f *StringFinder) SetGouroutinesLimit(limit int) {
 	f.errGroup.SetLimit(limit)
 }
 func (f *StringFinder) Search(path string, onlyFiles bool) (*MapFiles, error) {
-	mapFiles := MakeMapFiles()
+	f.mapFiles = MakeMapFiles()
 	if onlyFiles {
 		f.mapMaker = MakeOnlyFiles
 	} else {
@@ -184,8 +185,18 @@ func (f *StringFinder) Search(path string, onlyFiles bool) (*MapFiles, error) {
 			if info.IsDir() {
 				return nil
 			}
+
+			if info.Type() == os.ModeSymlink {
+				sympath, err := os.Readlink(path)
+
+				if err != nil {
+					return err
+				}
+
+				path = filepath.Join(filepath.Dir(path), sympath)
+			}
 			f.errGroup.Go(func() error {
-				return f.patternMatch(path, mapFiles)
+				return f.patternMatch(path)
 			})
 
 			return nil
@@ -193,7 +204,7 @@ func (f *StringFinder) Search(path string, onlyFiles bool) (*MapFiles, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mapFiles, f.errGroup.Wait()
+	return f.mapFiles, f.errGroup.Wait()
 }
 
 func longestCommonSuffix(a, b []byte) (i int) {

@@ -19,4 +19,4 @@ for column, ax in zip(df.columns[3:], axes):
         a.set_title(f"{ref}({column})")
 
 fig.tight_layout()
-fig.savefig(".github/images/result_time.png", dpi=600)
+fig.savefig(".github/images/result_time.png", dpi=300)
